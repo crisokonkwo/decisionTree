@@ -74,3 +74,8 @@ if __name__ == "__main__":
     print("Training...")
     model.train(X_train_features, labels_train, num_leaves)
 
+    print("Testing...")
+    accuracy = model.test(X_test_features, labels_test)
+    print("Test accuracy with {} leaves: {:.2f}%".format(num_leaves, accuracy))
+    print("Done.")
+
