@@ -41,7 +41,7 @@ if __name__ == "__main__":
     (w, b) = load_weights('weights.txt', num_lines, 28 * 28)
 
     images_train = np.asarray(images_list).astype(float)
-    labels_train = np.asarray(labels_list).astype(float)
+    labels_train = np.asarray(labels_list).astype(int)
     images_test = np.asarray(images_list_test).astype(float)
     labels_test = np.asarray(labels_list_test).astype(int)
 
@@ -72,10 +72,10 @@ if __name__ == "__main__":
     model = DecisionTree(num_classes=len(np.unique(labels_train)), num_leaves=num_leaves)
 
     print("Training...")
-    model.train(X_train_features, labels_train, num_leaves)
+    model.train(X_train_features, labels_train, num_leaves=num_leaves)
 
-    print("Testing...")
+    print("\nTesting...")
     accuracy = model.test(X_test_features, labels_test)
-    print("Test accuracy with {} leaves: {:.2f}%".format(num_leaves, accuracy))
+    print("Test accuracy with {} leaves: {:.2f}%".format(num_leaves, accuracy * 100))
     print("Done.")
 
