@@ -32,8 +32,6 @@ pip install -r requirements.txt
 
 ## How to Run
 
-### Quick Start
-
 To run the complete experiment with default settings:
 
 ```bash
