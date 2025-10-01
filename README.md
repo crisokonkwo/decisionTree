@@ -50,7 +50,7 @@ This will:
 
 The script will output training progress and results similar to:
 
-```
+```bash
 Training set size:  (60000, 784)
 Testing set size:  (10000, 784)
 Number of classes:  10
