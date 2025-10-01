@@ -82,16 +82,16 @@ if __name__ == "__main__":
         model.train(X_train_features, labels_train)
         train_sec = time.perf_counter() - t_0
         train_min = train_sec / 60
-        print(f"[Timing] training time = {train_min:.2f}min")
+        print(f"Timing training time = {train_min:.2f}min")
 
         print("\nTesting...")
         test_accuracy = model.test(X_test_features, labels_test)
         train_accuracy = model.test(X_train_features, labels_train)
-        print("[Test] accuracy={:.2f}%".format(test_accuracy * 100))
-        print("[Train] accuracy={:.2f}%".format(train_accuracy * 100))
+        print("Test accuracy={:.2f}%".format(test_accuracy * 100))
+        print("Train accuracy={:.2f}%".format(train_accuracy * 100))
         results.append((leaves, train_min, float(test_accuracy), float(train_accuracy)))
 
-    # Final summary
+    
     print("\n=== Summary: Accuracy vs. Leaves ===")
     print("  Leaves | TrainTime(min) | TestAcc(%) | TrainAcc(%)")
     print("  -------+---------------+-----------+-----------")

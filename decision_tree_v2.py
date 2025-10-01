@@ -1,25 +1,25 @@
 import numpy as np
 from scipy import stats
-import heapq
 
+# vanilla decision tree classifier that uses the provided 45 linear-regression values as features for MNIST.
 class DecisionTree:
     # Node subclass to handle the graph structure
     class Node:
-        """ internal class for tree nodes """
+        # internal class for tree nodes
         def __init__(self, indices):
-            self.prediction = None     
-            self.feature_index = None  
-            self.threshold = None      
-            self.l_child = None       
-            self.r_child = None       
-            self.indices = indices  
-            self.best_split = None       
+            self.prediction = None     # predicted class for leaf nodes
+            self.feature_index = None  # feature index to split on
+            self.threshold = None      # threshold value to split on
+            self.l_child = None       # left child node
+            self.r_child = None       # right child node
+            self.indices = indices  # indices of samples that reach this node
+            self.best_split = None       # cached best split info during training
 
 
-    def __init__(self, num_classes, num_leaves):
-        self.num_classes = num_classes 
-        self.num_leaves = num_leaves 
-        self.tree_root = None 
+    def __init__(self, num_classes, num_leaves): # initialize the decision tree with number of classes and leaves
+        self.num_classes = num_classes # number of unique class labels
+        self.num_leaves = num_leaves # maximum number of leaves in the tree
+        self.tree_root = None # root node of the decision tree
 
     def best_split(self, f_column, Y):
         """
@@ -29,6 +29,7 @@ class DecisionTree:
         """
         n_samples = Y.size
 
+        # if no samples, return None
         if n_samples == 0:
             return None, float('inf'), None, None
 
@@ -48,6 +49,9 @@ class DecisionTree:
 
         # Initialize counts for left and right splits
         left_counts = np.zeros(self.num_classes).astype(int)
+        # right_counts = np.zeros(self.num_classes).astype(int)
+        # for label in sorted_labels:
+        #     right_counts[label] += 1
         right_counts = np.bincount(sorted_labels, minlength=self.num_classes).astype(int)
 
         for i in range(n_samples - 1):
@@ -135,47 +139,50 @@ class DecisionTree:
 
         leaves = [self.tree_root]  # list of current leaf nodes
 
-        # Heap priority queue to avoid recomputing best splits for all leaves every iteration
-        leaves_heap = []
-        counter = 0  # to break ties in heapq
-        
         # Compute and attach best split info to a leaf
         def compute_node_split(leaf):
-            nonlocal counter
             feat, thresh, split_loss, l_pred, r_pred, loss_before, leaf_pred = self.split_node(leaf.indices, X, Y)
-            loss_reduction = loss_before - split_loss
             leaf.best_split = {
                 "feature": feat, "threshold": thresh,
                 "loss_after": split_loss, "loss_before": loss_before,
                 "l_pred": l_pred, "r_pred": r_pred, "leaf_pred": leaf_pred
             }
-            heapq.heappush(leaves_heap, (-loss_reduction, counter, leaf))
-            counter += 1
-
+                
         # Precompute best split for root
         compute_node_split(self.tree_root)
         print("Root best split={} with indices count={}".format(self.tree_root.best_split, len(self.tree_root.indices)))
 
-        """ Grow the tree by greedily adding splits to the leaf that most reduces the overall loss until reaching the 
-        specified number of leaves or no further splits improve the loss """
+        # Grow the tree by greedily adding splits to the leaf that most reduces the overall loss until reaching the specified number of leaves or no further splits improve the loss
         print("\nGrowing the tree...")
-        iteration_id = 0
-        max_iterations = max(1, num_leaves)
-        while len(leaves) < max_iterations and leaves_heap:
-            iteration_id += 1
-            # return the smallest loss from the heap, split the leaf with the biggest gain (loss reduction)
-            neg_loss_reduction, _, leaf_to_split = heapq.heappop(leaves_heap) 
-            loss_reduction = -neg_loss_reduction
-            bs = leaf_to_split.best_split             
+        round_id = 0
+        max_rounds = max(1, num_leaves)
+        while len(leaves) < max_rounds:
+            round_id += 1            
+            # compute/refresh best splits and collect improvements -- the leaf with the best (lowest) loss after split
+            candidates = []
+            for leaf in leaves:
+                # print("Evaluating leaf with indices count: {} and prediction: {}".format(len(leaf.indices), leaf.prediction))
+                if leaf.indices is None or leaf.indices.size == 0:
+                    continue
+                compute_node_split(leaf)
+                bs = leaf.best_split
+                loss_reduction = bs["loss_before"] - bs["loss_after"] # positive gain means loss is reduced
+                if bs["feature"] is not None and loss_reduction > 0:
+                    candidates.append((loss_reduction, leaf))
 
-            if bs["loss_after"] >= bs["loss_before"]:
-                print(f"Iter {iteration_id}/{max_iterations} --> No improving splits remain. Stop.")
-                continue
+            if not candidates:
+                print(f"Iter {round_id}/{max_rounds} -- No improving splits remain. Stop.")
+                break
             else:
-                print(f"Iter {iteration_id}/{max_iterations} --> Leaves={len(leaves)}, improving_splits={len(leaves_heap)}, best_gain={loss_reduction}, prediction={bs['leaf_pred']}")
+                loss_reductions_sorted = sorted([g for g,_ in candidates], reverse=True)
+                print(f"Iter {round_id}/{max_rounds} -- Leaves={len(leaves)}, improving_splits={len(candidates)}, best_gain={loss_reductions_sorted[0]}")
 
+            # Sort loss reductions in descending order and pick the best leaf - positive gain means loss is reduced
+            candidates.sort(reverse=True, key=lambda x: x[0])
+            _, leaf_to_split = candidates[0]
+            bs = leaf_to_split.best_split
             feat, thresh = bs["feature"], bs["threshold"]
-            print(f"  -> Split leaf |indices_count|={len(leaf_to_split.indices)} on feature={feat}, threshold={thresh:.6f}, loss_before={bs['loss_before']}, loss_after={bs['loss_after']}")
+            print(f"  -> Split leaf |indices|={len(leaf_to_split.indices)} on feature={feat}, threshold={thresh:.6f}, loss_before={bs['loss_before']}, loss_after={bs['loss_after']}")
 
             # Perform the split - partition the indices
             X_node = X[leaf_to_split.indices]
@@ -209,12 +216,14 @@ class DecisionTree:
             leaves.remove(leaf_to_split)
             leaves.extend([l_node, r_node])
 
-            print(f"     -> Left: indices_count={len(l_node.indices)}, prediction={l_node.prediction} || Right: indices_count={len(r_node.indices)}, prediction={r_node.prediction} || total leaves={len(leaves)}\n")
+            print(f"     -> Left: count={len(l_node.indices)}, prediction={l_node.prediction} || Right: count={len(r_node.indices)}, prediction={r_node.prediction} || total leaves={len(leaves)}\n")
             
-            # Precompute best splits for the new leaves
-            compute_node_split(l_node)
-            compute_node_split(r_node)
-            
+            # # Precompute best splits for the new leaves
+            # compute_node_split(l_node)
+            # compute_node_split(r_node)
+            # print("\n")
+
+        # print(f"DONE Final leaves={len(leaves)}\n")
 
     # Predict the class labels for the input samples
     def predict(self, X):
